@@ -33,19 +33,9 @@
   (FileUtils/writeStringToFile (file (str "./solution/" f)) s))
 
 (defn append-to! [r ks v]
-  (dosync 
+  (dosync
    (let [cv (reduce (fn[h v] (v h)) @r ks)]
      (alter r assoc-in ks (conj cv v)))))
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -63,7 +53,6 @@
 (defn is-special-form? [s f]
   (and (seq? f)
        (= (first f) s)))
-
 
 
 
@@ -124,7 +113,6 @@
 (defmethod emit 'def [[_ name & form] state]
            (append-to! state [:symbol-table] name)
            (str name " = " (apply str (map #(emit % state) form))))
-
 
 
 (defn compile->cpp [form]

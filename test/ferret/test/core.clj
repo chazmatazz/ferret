@@ -32,7 +32,7 @@
                                     (- 1)
                                     (- 4 2 2)
                                     (- 4 2 2.0)
-                                    
+
                                     (* )
                                     (* 2 2 2)
                                     (* 2.0 2 2)
@@ -87,13 +87,13 @@
   (is (= "1 1 1 true false true true true 0 1 2 3 4 "
          (do (compile->cpp '((defmacro my-when [test & body]
                                (list 'if test (cons 'do body)))
-                             
+
                              (print (my-when (< 2 3) 1)
 
                                     (when (< 2 3) 1)
 
                                     (when (< 2 3) 1)
-                                    
+
                                     (let [a 1]
                                       (and (> a 0)
                                            (< a 10)))
@@ -101,7 +101,7 @@
                                     (let [a 11]
                                       (and (> a 0)
                                            (< a 10)))
-                                    
+
                                     (and true true)
 
                                     (or true false)
@@ -109,7 +109,7 @@
                                     (let [a 11]
                                       (or (> a 0)
                                           (< a 10))))
-                             
+
                              (dotimes [i 5] (print i))))
              (:out (compile-run-solution))))))
 
@@ -165,7 +165,7 @@
 
                              (native-declare "int i = 0;")
                              (defn inc-int [] "return i++;")
-                             
+
                              (print (adder 9)
 
                                     (fibo 10)
@@ -181,7 +181,7 @@
                                     (adder-let 2)
 
                                     (adder-let-2 2))
-                             
+
                              (while (< (inc-int) 10)
                                (print 1))))
              (:out (compile-run-solution))))))

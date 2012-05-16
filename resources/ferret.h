@@ -25,8 +25,8 @@
 //
 
 #ifdef AVR_GCC
-extern "C" void __cxa_pure_virtual(void); 
-void __cxa_pure_virtual(void) {}; 
+extern "C" void __cxa_pure_virtual(void);
+void __cxa_pure_virtual(void) {};
 
 static FILE uartout = {0};
 
@@ -46,7 +46,7 @@ static int uart_putchar (char c, FILE *stream){
 
 #ifdef GNU_GCC
 #define OUTPUT_STREAM stdout
-#define INIT_ENV 
+#define INIT_ENV
 #endif
 
 
@@ -85,14 +85,12 @@ namespace ferret{
 
   class var;
 
-  enum TYPE {CONS_TYPE, LIST_TYPE, LAMBDA_TYPE, BOOLEAN_TYPE, KEYWORD_TYPE, 
+  enum TYPE {CONS_TYPE, LIST_TYPE, LAMBDA_TYPE, BOOLEAN_TYPE, KEYWORD_TYPE,
              POINTER_TYPE, INTEGER_TYPE, FLOAT_TYPE, CHARACTER_TYPE};
 
- 
 
- 
 
-  class Pointer : public Object { 
+  class Pointer : public Object {
   public:
     void* ptr;
     Pointer(void* p){ptr = p;}
@@ -100,7 +98,7 @@ namespace ferret{
     int getType(){ return POINTER_TYPE;}
     var equals(var o){ return ptr = POINTER(o)->ptr; }
 
-    var toOutputStream(){ 
+    var toOutputStream(){
       fprintf(OUTPUT_STREAM, "Pointer");
       return var();
     }
@@ -143,12 +141,12 @@ namespace ferret{
     var equals(var o){
 
       switch(OBJECT(o)->getType()) {
-      case INTEGER_TYPE: 
+      case INTEGER_TYPE:
         return (value == INTEGER(o)->floatValue());
-      case FLOAT_TYPE: 
+      case FLOAT_TYPE:
         return (value == FLOAT(o)->floatValue());
       }
-      
+
       return false;
     }
   private:
@@ -156,20 +154,19 @@ namespace ferret{
   };
 
   var Integer::equals(var o){
-    
+
     switch(OBJECT(o)->getType()) {
-    case INTEGER_TYPE: 
+    case INTEGER_TYPE:
       return (value == INTEGER(o)->intValue());
     case FLOAT_TYPE:
       return (value == FLOAT(o)->intValue());
     }
-    
+
     return false;
   }
 
-  
 
-  class Keyword : public Object { 
+  class Keyword : public Object {
   public:
     int id;
 
@@ -179,14 +176,14 @@ namespace ferret{
     var equals(var o){
       if (OBJECT(o)->getType() != KEYWORD_TYPE)
         return false;
-    
+
       return (id == KEYWORD(o)->id);
     }
 
     var toOutputStream(){ fprintf(OUTPUT_STREAM, "%d", id); return var();};
   };
 
-  class Character : public Object { 
+  class Character : public Object {
   public:
     char value;
     Character(char c){value = c;}
@@ -195,17 +192,16 @@ namespace ferret{
     var equals(var o){
       if (OBJECT(o)->getType() != CHARACTER_TYPE)
         return false;
-    
+
       return (value == CHARACTER(o)->value);
     }
 
-    var toOutputStream(){ 
+    var toOutputStream(){
       fprintf(OUTPUT_STREAM, "%c",value);
       return var();
     }
   };
 
-  
 
   class Cell : public Object{
   public:
@@ -215,7 +211,7 @@ namespace ferret{
     var equals(var o){
       if (OBJECT(o)->getType() != CONS_TYPE)
         return false;
-    
+
       return OBJECT(data)->equals(o);
     }
 
@@ -295,7 +291,7 @@ namespace ferret{
 
       var itOther = o;
       for(var it = this; !SEQUENCE(it)->isEmpty(); it = SEQUENCE(it)->rest()){
-        if (SEQUENCE(itOther)->isEmpty() || 
+        if (SEQUENCE(itOther)->isEmpty() ||
             BOOLEAN(OBJECT(SEQUENCE(it)->first())->equals(SEQUENCE(itOther)->first()))->asBool() == false)
           return false;
 

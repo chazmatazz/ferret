@@ -47,7 +47,6 @@
 (defn list [& xs] "__result = xs;")
 
 
-
 (defn rest [x] "__result = SEQUENCE(x)->rest();")
 
 (defn cons [x seq] "__result = (SEQUENCE(seq)->clone(),x);")
@@ -85,7 +84,6 @@
   fprintf(OUTPUT_STREAM, "\n");
   >#)
 
-  
 
 (defn + [& xs]
   (reduce (fn[h v]

@@ -2,26 +2,26 @@
 (ns ferret.template
     (:use org.bituf.clj-stringtemplate)
     (:use [clojure.contrib.seq :only [indexed]]))
-  
+
   (defn new-lambda [n e]
     (let [view (create-view "FN($name$$env:{,$it$}$)")]
       (fill-view! view "name" n)
       (fill-view! view "env" e)
       (render-view view)))
-  
+
   (defn invoke-lambda [n args]
     (let [view (create-view "INVOKE($lambda$, $args:{$it$} ;separator=\",\"$)")]
       (fill-view! view "lambda" n)
       (fill-view! view "args" (reverse args))
       (render-view view)))
-  
+
   (defn if-statement [cond t f]
     (apply str "(BOOLEAN(" cond ")->asBool() ? (VAR)" t " : (VAR)" f ")"))
-  
+
   ;;
   ;; Solution Template
   ;;
-  
+
   (defn declare-lambdas [lambdas]
     (let [view (create-view
                 "
@@ -57,22 +57,22 @@ $lambdas: {lambda|
       (fill-view! view "lambdas" (map #(let [args (:args %)]
                                          (assoc % :args (indexed args))) lambdas))
       (render-view view)))
-  
-  
+
+
   (defn solution-template [source]
     (let [{:keys [body lambdas symbol-table native-declarations]} source
           view (create-view
                 "
   #include \"ferret.h\"
-  
+
   $native_declarations:{$it$} ;separator=\"\n\"$
-  
+
   $symbols:{VAR $it$;} ;separator=\"\n\"$
-  
+
   namespace ferret{
     $lambdas:{$it$} ;separator=\"\n\"$
   }
-  
+
   int main(void){
     INIT_ENV
     $body:{$it$;} ;separator=\"\n\"$
