@@ -81,7 +81,7 @@ else
 endif
 
 # Where do you keep the official Arduino software package?
-ARDUINO_DIR = /usr/local/share/arduino
+ARDUINO_DIR = $(HOME)/arduino-1.0
 HOME_LIB = $(HOME)/sketchbook/libraries
 
 # path to ATTiny files look at http://hlt.media.mit.edu/?p=1695
@@ -265,7 +265,7 @@ OBJDUMP = $(AVR_TOOLS_PATH)/avr-objdump
 AR  = $(AVR_TOOLS_PATH)/avr-ar
 SIZE = $(AVR_TOOLS_PATH)/avr-size
 NM = $(AVR_TOOLS_PATH)/avr-nm
-AVRDUDE = $(AVR_TOOLS_PATH)/avrdude
+AVRDUDE = /usr/local/bin/avrdude
 REMOVE = rm -f
 MV = mv -f
 
@@ -291,21 +291,9 @@ build: elf hex
 
 #applet_files: $(TARGET).ino
 
-applet/$(TARGET).cpp: $(TARGET).ino
-	# Here is the "preprocessing".
-	# It creates a .cpp file based with the same name as the .ino file.
-	# On top of the new .cpp file comes the WProgram.h header.
-	# At the end there is a generic main() function attached,
-	# plus special magic to get around the pure virtual error
-	# undefined reference to `__cxa_pure_virtual' from Print.o.
-	# Then the .cpp file will be compiled. Errors during compile will
-	# refer to this new, automatically generated, file. 
-	# Not the original .ino file you actually edit...
+applet/$(TARGET).cpp: $(TARGET).cpp
 	test -d applet || mkdir applet
-	echo '#include "Arduino.h"' > applet/$(TARGET).cpp
-	cat $(TARGET).ino >> applet/$(TARGET).cpp
-	echo 'extern "C" void __cxa_pure_virtual() { while (1) ; }' >> applet/$(TARGET).cpp
-	cat $(ARDUINO_CORE)/main.cpp >> applet/$(TARGET).cpp
+	cat $(TARGET).cpp >> applet/$(TARGET).cpp
 
 elf: applet/$(TARGET).elf
 hex: applet/$(TARGET).hex

@@ -1,3 +1,10 @@
+ (defn first [x]
+    #<
+    if(x.get() == NULL)
+      __result = VAR();
+    else
+      __result = SEQUENCE(x)->first();
+      >#)
 
 (defmacro not= [& test]
   (list 'not (cons '= `( ~@test))))
@@ -83,6 +90,11 @@
   #<
   fprintf(OUTPUT_STREAM, "\n");
   >#)
+
+(defn println [& more]
+    (apply print more)
+    (newline))
+
 
 
 (defn + [& xs]
@@ -243,6 +255,7 @@
 (defn reverse [s]
   (reduce conj (list) s))
 
+
 ;;Arduino
 
 (defn pin-mode [pin mode]
@@ -262,3 +275,6 @@
   >#)
 
 (defn sleep [timeout] "::delay(INTEGER(timeout)->intValue());")
+
+(defmacro defn [name args & body]
+    (list 'def name (cons 'fn `( ~args ~@body))))

@@ -27,7 +27,8 @@
   (doto (file "./solution/")
     (delete-file-recursively true)
     (.mkdir))
-  (copy-to-solution "ferret.h" "./solution/ferret.h"))
+  (copy-to-solution "ferret.h" "./solution/ferret.h")
+  (copy-to-solution "Makefile" "./solution/Makefile"))
 
 (defn write-to-solution [s f]
   (FileUtils/writeStringToFile (file (str "./solution/" f)) s))
@@ -37,15 +38,153 @@
    (let [cv (reduce (fn[h v] (v h)) @r ks)]
      (alter r assoc-in ks (conj cv v)))))
 
+(defn morph-form [tree pred f]
+    (loop [loc (zip/seq-zip tree)]
+      (if (zip/end? loc)
+        (zip/root loc)
+        (recur
+         (zip/next
+          (if (pred (zip/node loc))
+            (zip/replace loc (f (zip/node loc)))
+            loc))))))
 
+  (defn remove-form [tree pred]
+    (loop [loc (zip/seq-zip tree)]
+      (if (zip/end? loc)
+        (zip/root loc)
+        (recur
+         (zip/next
+          (if (pred (zip/node loc))
+            (zip/remove loc)
+            loc))))))
 
+  (defn is-form? [& s]
+    (fn [f]
+      (and (seq? f)
+           (some true? (map #(= % (first f)) s)))))
 
+(defn dispatch-reader-macro [ch fun]
+    (let [dm (.get
+              (doto (.getDeclaredField clojure.lang.LispReader "dispatchMacros")
+                (.setAccessible true))
+              nil)]
+      (aset dm (int ch) fun)))
 
+  (defn native-string [rdr letter-u]
+    (loop [s (str )
+           p \space
+           c (char (.read rdr))]
+      (if (and (= c \#) (= p \>))
+        s
+        (recur (str s p) c (char (.read rdr))))))
 
+  (dispatch-reader-macro \< native-string)
 
+(defn expand-macros [form]
+    (let [macros (->> (read-string (str \( (read-from-url "runtime.clj") \)))
+                      ;;get built in macros
+                      (filter (is-form? 'defmacro))
+                      ;;merge user defined macros
+                      (concat (filter (is-form? 'defmacro) form)))
+          form (remove-form form (is-form? 'defmacro))
+          temp-ns (gensym)]
 
+      (create-ns temp-ns)
+      (binding [*ns* (the-ns temp-ns)]
+        (refer 'clojure.core :exclude (concat (map second macros) ['fn 'let 'def]))
+        (use 'clojure.contrib.macro-utils)
+        (doseq [m macros]
+          (eval m)))
 
+      (let [form (morph-form form
+                             (apply is-form? (map second macros))
+                             (fn [f]
+                               (binding [*ns* (the-ns temp-ns)]
+                                 (macroexpand-all f))))]
+        (remove-ns temp-ns)
+        form)))
 
+(defn add-built-in
+    ([form]
+       (let [built-in (->> (read-string (str \( (read-from-url "runtime.clj") \)))
+                           (filter (is-form? 'defn))
+                           (reduce (fn[h v] (assoc h (second v) v)) {}))
+             fns (ref {'list (built-in 'list)})
+             form (add-built-in form built-in fns)]
+         (concat (vals @fns) form)))
+    ([form built-in fns]
+       (morph-form form symbol?
+                   #(do (if-let [f (built-in %)]
+                          (when (not (@fns %))
+                            (do (dosync (alter fns assoc % f))
+                                (add-built-in
+                                 (expand-macros (drop 3 f))
+                                 built-in fns)))) %))))
+
+(defn vector->list [form]
+    (morph-form form vector? #(reverse (into '() %))))
+
+(defn let->fn [form]
+    (morph-form form
+                (is-form? 'let)
+                (fn [[_ bindings & body]]
+                  (let [bindings (partition 2 bindings)
+                        vars (flatten (map first bindings))
+                        defs (map #(cons 'define-var %) bindings)
+                        body-fn (cons (concat ['fn vars] body) vars)]
+                    (list (concat ['fn []] defs [body-fn]))))))
+
+ (defn do->fn [form]
+    (morph-form form
+                (is-form? 'do)
+                #(list (concat ['fn []] (rest %)))))
+
+(defn lambda-defined? [fns env args body]
+    (let [f (concat [env args] body)
+          name (reduce (fn[h v]
+                         (let [[_ n & r] v]
+                           (if (= r f) n))) nil @fns)]
+      (when name
+        (apply list 'lambda-object name env))))
+
+  (defn define-lambda [fns env args body]
+    (let [n (gensym)]
+      (dosync (alter fns conj (concat ['define-lambda n env args] body)))
+      (apply list 'lambda-object n env)))
+
+  (defn closure-conversion
+    ([form]
+       (let [fns (ref [])
+             form (closure-conversion form fns)]
+         (vector->list (concat @fns form))))
+    ([form fns & env]
+       (morph-form form
+                   (is-form? 'fn)
+                   (fn [[_ args & body]]
+                     (let [env (if (nil? env) '() (first env))
+                           body (closure-conversion body fns (concat args env))]
+                       (if-let [n (lambda-defined? fns env args body)]
+                         n
+                         (define-lambda fns env args body)))))))
+
+ (defn symbol-conversion [form]
+    (let [c (comp #(symbol (escape {\- \_ \* "_star_" \+ "_plus_" \/ "_slash_"
+                                    \< "_lt_" \> "_gt_" \= "_eq_" \? "_QMARK_"}
+                                   (str %)))
+                  #(cond (= 'not %) '_not_
+                         :default %))]
+      (morph-form form symbol? c)))
+
+(defn process [form]
+    (->> (expand-macros form)
+         (add-built-in)
+         (expand-macros)
+         (vector->list)
+         (let->fn)
+         (do->fn)
+         (closure-conversion)
+         (symbol-conversion)
+         (vector->list)))
 
 (defn to-str? [f]
   (or (true? f) (false? f) (symbol? f)))
@@ -54,7 +193,21 @@
   (and (seq? f)
        (= (first f) s)))
 
-
+(defmulti emit (fn [form _]
+                   (cond (is-special-form? 'define_lambda form) 'define_lambda
+                         (is-special-form? 'lambda_object form) 'lambda_object
+                         (is-special-form? 'define_var form) 'define_var
+                         (is-special-form? 'native_declare form) 'native_declare
+                         (is-special-form? 'if form) 'if
+                         (is-special-form? 'def form) 'def
+                         (is-special-form? 'reduce form) 'reduce
+                         (to-str? form) :to-str
+                         (keyword? form) :keyword
+                         (number? form) :number
+                         (nil? form) :nil
+                         (char? form) :char
+                         (string? form) :string
+                         (seq? form) :sequence)))
 
 (defmethod emit :to-str [form state] (str "VAR("form ")"))
 
@@ -114,6 +267,10 @@
            (append-to! state [:symbol-table] name)
            (str name " = " (apply str (map #(emit % state) form))))
 
+(defn emit-source [form]
+    (let [state (ref {:lambdas [] :symbol-table #{} :native-declarations []})
+          body (doall (map #(emit % state) (process form)))]
+      (assoc @state :body body)))
 
 (defn compile->cpp [form]
   (init-solution-dir)

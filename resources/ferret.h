@@ -17,7 +17,7 @@
 #endif
 
 #ifdef AVR_GCC
-#include "WProgram.h"
+#include "Arduino.h"
 #endif
 
 //
@@ -88,7 +88,94 @@ namespace ferret{
   enum TYPE {CONS_TYPE, LIST_TYPE, LAMBDA_TYPE, BOOLEAN_TYPE, KEYWORD_TYPE,
              POINTER_TYPE, INTEGER_TYPE, FLOAT_TYPE, CHARACTER_TYPE};
 
+class Object{
+    public:
+      Object() : refCount(0) {}
+      virtual ~Object() {};
 
+      virtual int getType() = 0;
+      virtual var toOutputStream() = 0;
+      virtual var equals(var o) = 0;
+
+      void addRef() { refCount++; }
+      bool subRef() { return (--refCount <= 0); }
+
+
+      void* operator new(size_t size){ 
+        return malloc(size); 
+      } 
+
+      void  operator delete(void * ptr){ 
+        free(ptr); 
+      }
+
+      void* operator new[](size_t size){ 
+        return malloc(size); 
+      }
+
+      void  operator delete[](void * ptr){ 
+        free(ptr); 
+      }
+
+    private:
+      int refCount;
+    };
+    
+    class var{
+public:
+  var(Object* ptr=0) : m_ptr(ptr) { addRef(); }
+
+  var(const var& p) : m_ptr(p.m_ptr) { addRef(); }
+
+  ~var() { subRef(); }
+
+  var& operator= (const var& p){
+    return *this = p.m_ptr;
+  }
+
+  var& operator= (Object* ptr){
+    if (m_ptr != ptr){
+      subRef();
+      m_ptr=ptr;
+      addRef();
+    }
+    return *this;
+  }
+
+  var(int i);
+  var(float f);
+  var(bool b);
+  var(char b);
+
+  var& operator, (const var& m);
+  var toOutputStream() {
+    if (m_ptr != NULL )
+      m_ptr->toOutputStream();
+    else
+      fprintf(OUTPUT_STREAM, "nil");
+  }
+
+  Object* get() { return m_ptr; }
+
+private:
+  void addRef(){
+    // Only change if non-null
+    if (m_ptr) m_ptr->addRef();
+  }
+
+  void subRef(){
+    // Only change if non-null
+    if (m_ptr){
+      // Subtract and test if this was the last pointer.
+      if (m_ptr->subRef()){
+        delete m_ptr;
+        m_ptr=0;
+      }
+    }
+  }
+
+  Object* m_ptr;
+};
 
   class Pointer : public Object {
   public:
@@ -103,6 +190,38 @@ namespace ferret{
       return var();
     }
   };
+  
+  class Boolean : public Object { 
+public:
+  Boolean(bool b){value = b;}
+  int getType(){ return BOOLEAN_TYPE;}
+
+  bool asBool() { return value; }
+
+  var equals(var o){
+    if (OBJECT(o)->getType() != BOOLEAN_TYPE)
+      return false;
+
+    return (value == BOOLEAN(o)->asBool());
+  }
+
+  var toOutputStream(){ 
+    if (value)
+      fprintf(OUTPUT_STREAM, "true"); 
+    else
+      fprintf(OUTPUT_STREAM, "false"); 
+
+    return var();
+  }
+private:
+  bool value;
+};
+
+
+class Lambda : public Object{ 
+public:
+  virtual var invoke(var args) = 0;
+};
 
   class Integer : public Object{
   public:
